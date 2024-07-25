@@ -16,7 +16,7 @@
                        :outcome outcome
                        :limitProb limit
                        :expiresAt (-> duration-seconds (* 1000) (+ (System/currentTimeMillis)))
-                       :dryRun dry-run}})) 
+                       :dryRun (or dry-run false)}}))
 
 (defn run-strategy [strategy]
   (doall
@@ -24,8 +24,8 @@
                     strategies/get-search-params
                     search-markets
                     (strategies/get-trades strategy))]
-    (let [{:keys [betId contractId orderAmount outcome] :as result} (execute-trade trade)]
-      (println "Strategy" (:name strategy) "executed trade" betId "on market" contractId "for" orderAmount outcome)
+    (let [{:keys [betId contractId orderAmount outcome createdTime] :as result} (execute-trade trade)]
+      (println (java.time.Instant/ofEpochMilli createdTime) ": Strategy" (:name strategy) "executed trade" betId "on market" contractId "for" orderAmount outcome)
       result))))
 
 ;; Main loop
