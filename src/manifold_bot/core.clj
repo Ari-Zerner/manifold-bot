@@ -1,42 +1,22 @@
 (ns manifold-bot.core
-  (:require [clj-http.client :as http]
-            [cheshire.core :as json]
-            [clojure.core.async :as async]
-            [clojure.edn :as edn]
+  (:require [clojure.core.async :as async]
+            [manifold-bot.api :as api]
             [manifold-bot.strategies :as strategies]))
-
-;; Configuration
-(def config (edn/read-string (slurp "config.edn")))
-
-;; API interaction
-(defn api-request [endpoint method & [opts]]
-  (let [url (str (:api-base-url config) endpoint)
-        default-opts {:headers {"Authorization" (str "Key " (:api-key config))}
-                      :as :json
-                      :coerce :always}
-        response (http/request (merge default-opts
-                                      opts
-                                      {:method method
-                                       :url url}))]
-    (:body response)))
-
-;; Load user info
-(def get-my-user-info (memoize (fn [] (api-request "/me" :get))))
 
 ;; Market data functions
 (defn search-markets [query-params]
-  (api-request "/search-markets" :get
+  (api/request "/search-markets" :get
                {:query-params (merge {:term ""} query-params)}))
 
 ;; Trading functions
 (defn execute-trade [{:keys [market-id amount outcome limit duration-seconds dry-run] :as trade}]
-  (api-request "/bet" :post
-               {:form-params {:contractId market-id
-                              :amount amount
-                              :outcome outcome
-                              :limitProb limit
-                              :expiresAt (cond-> duration-seconds (* 1000) (+ (System/currentTimeMillis)))
-                              :dryRun dry-run}}))
+  (api/request "/bet" :post
+               {:body {:contractId market-id
+                       :amount amount
+                       :outcome outcome
+                       :limitProb limit
+                       :expiresAt (-> duration-seconds (* 1000) (+ (System/currentTimeMillis)))
+                       :dryRun dry-run}})) 
 
 (defn run-strategy [strategy]
   (doall
@@ -44,16 +24,16 @@
                     strategies/get-search-params
                     search-markets
                     (strategies/get-trades strategy))]
-    (let [bet-id (execute-trade trade)]
-      (println "Strategy " (:name strategy) " executed trade " bet-id)
-      bet-id))))
+    (let [{:keys [betId contractId orderAmount outcome] :as result} (execute-trade trade)]
+      (println "Strategy" (:name strategy) "executed trade" betId "on market" contractId "for" orderAmount outcome)
+      result))))
 
 ;; Main loop
 (defn trading-loop []
   (async/go-loop []
     (doseq [strategy (strategies/get-strategies)]
       (run-strategy strategy))
-    (async/<! (async/timeout (* 1000 (:poll-interval-seconds config))))
+    (async/<! (async/timeout (* 1000 (:poll-interval-seconds api/config))))
     (recur)))
 
 ;; Entry point
