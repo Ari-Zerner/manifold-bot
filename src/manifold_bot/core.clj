@@ -25,29 +25,34 @@
 
 ;; Market data functions
 (defn search-markets [query-params]
-  (api-request "/search-markets" :get {:query-params query-params}))
+  (api-request "/search-markets" :get
+               {:query-params (merge {:term ""} query-params)}))
 
 ;; Trading functions
-(defn execute-trade [{:keys [market-id amount outcome limit duration-seconds] :as trade}]
-  (->
-   (api-request "/bet" :post
+(defn execute-trade [{:keys [market-id amount outcome limit duration-seconds dry-run] :as trade}]
+  (api-request "/bet" :post
                {:form-params {:contractId market-id
                               :amount amount
                               :outcome outcome
                               :limitProb limit
-                              :expiresAt (cond-> duration-seconds (* 1000) (+ (System/currentTimeMillis)))}})
-   :betId))
+                              :expiresAt (cond-> duration-seconds (* 1000) (+ (System/currentTimeMillis)))
+                              :dryRun dry-run}}))
+
+(defn run-strategy [strategy]
+  (doall
+   (for [trade (->> strategy
+                    strategies/get-search-params
+                    search-markets
+                    (strategies/get-trades strategy))]
+    (let [bet-id (execute-trade trade)]
+      (println "Strategy " (:name strategy) " executed trade " bet-id)
+      bet-id))))
 
 ;; Main loop
 (defn trading-loop []
   (async/go-loop []
-    (doseq [strategy (strategies/get-strategies)
-            trade (->> strategy
-                        strategies/get-search-params
-                        search-markets
-                        (strategies/get-trades strategy))]
-      (let [bet-id (execute-trade trade)]
-        (println "Strategy " (:name strategy) " executed trade " bet-id)))
+    (doseq [strategy (strategies/get-strategies)]
+      (run-strategy strategy))
     (async/<! (async/timeout (* 1000 (:poll-interval-seconds config))))
     (recur)))
 

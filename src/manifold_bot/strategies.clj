@@ -8,7 +8,11 @@
   (let [strategy {:name (str name)
                   :description description
                   :search-params search-params
-                  :get-trades get-trades}
+                  :get-trades (if enabled
+                                get-trades
+                                `(fn [markets#]
+                                   (map #(assoc % :dry-run true)
+                                        (~get-trades markets#))))}
         sym (symbol (str (clojure.string/lower-case (str name)) "-strategy"))]
     `(do
        (def ~sym ~strategy)
@@ -28,7 +32,7 @@
 (defstrategy Null
   :enabled false
   :description "Do nothing"
-  :search-params {:limit 0}
+  :search-params {:limit 1}
   :get-trades (fn [markets] []))
 
 ;; Get all enabled strategies
