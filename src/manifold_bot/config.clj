@@ -13,6 +13,9 @@
 (defn poll-interval-seconds []
   (:poll-interval-seconds config))
 
+(defn polls-per-report []
+  (:polls-per-report config))
+
 (defn config-for-strategy [strategy-name]
   (merge {:enabled false}
          (get-in config [:strategy-config (keyword strategy-name)])))
