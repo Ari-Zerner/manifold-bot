@@ -1,14 +1,16 @@
 (ns manifold-bot.strategies 
-  (:require [manifold-bot.api :as api]))
+  (:require [manifold-bot.api :as api]
+            [manifold-bot.config :as config]))
 
 ;; Registry for storing strategies
 (def strategy-registry (atom {}))
 
 ;; Macro for defining strategies
-(defmacro defstrategy [name & {:keys [enabled description search-params get-trades]}]
-  (let [strategy {:name (str name)
+(defmacro defstrategy [name & {:keys [description get-search-params get-trades]}]
+  (let [enabled (:enabled (config/config-for-strategy name))
+        strategy {:name (str name)
                   :description description
-                  :search-params search-params
+                  :get-search-params get-search-params
                   :get-trades (if enabled
                                 get-trades
                                 `(fn [markets#]
@@ -23,27 +25,26 @@
 
 (defn get-search-params
   [strategy]
-  (:search-params strategy))
+  ((:get-search-params strategy) (config/config-for-strategy (:name strategy))))
 
 (defn get-trades
   [strategy markets]
-  ((:get-trades strategy) markets))
+  ((:get-trades strategy) (config/config-for-strategy (:name strategy)) markets))
 
 ;; Simple Strategy
 (defstrategy Null
-  :enabled false
   :description "Do nothing"
-  :search-params {:limit 1}
-  :get-trades (fn [markets] []))
+  :get-search-params {:limit 1}
+  :get-trades (fn [config markets] []))
 
 (defstrategy CoinFlip
-  :enabled true
   :description "Market make in @Traveel's daily coinflip markets"
-  :search-params {:term "Daily coinflip"
-                  :creatorId "gRmM27eQDEVTEjM1q6Yzc7abJT93" ; @Traveel
-                  :filter "open"
-                  :contractType "BINARY"}
-  :get-trades (fn [markets]
+  :get-search-params (fn [config]
+                       {:term "Daily coinflip"
+                        :creatorId "gRmM27eQDEVTEjM1q6Yzc7abJT93" ; @Traveel
+                        :filter "open"
+                        :contractType "BINARY"})
+  :get-trades (fn [config markets]
                 (let [user-id (:id (api/get-my-user-info))
                       get-user-bets (fn [market-id]
                                       (api/request
@@ -57,13 +58,13 @@
                               (remove nil?
                                       [(when-not (has-position-or-order? user-bets "YES")
                                          {:market-id (:id market)
-                                          :amount 10
+                                          :amount (:size config)
                                           :outcome "YES"
                                           :limit 0.47
                                           :duration-seconds 86400})
                                        (when-not (has-position-or-order? user-bets "NO")
                                          {:market-id (:id market)
-                                          :amount 10
+                                          :amount (:size config)
                                           :outcome "NO"
                                           :limit 0.53
                                           :duration-seconds 86400})])))
