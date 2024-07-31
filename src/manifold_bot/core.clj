@@ -18,15 +18,27 @@
                        :expiresAt (-> duration-seconds (* 1000) (+ (System/currentTimeMillis)))
                        :dryRun (or dry-run false)}}))
 
+(defn time-str
+  ([time] (str (java.time.Instant/ofEpochMilli time)))
+  ([] (time-str (System/currentTimeMillis))))
+
 (defn run-strategy [strategy]
-  (doall
-   (for [trade (->> strategy
-                    strategies/get-search-params
-                    search-markets
-                    (strategies/get-trades strategy))]
-    (let [{:keys [betId contractId orderAmount outcome createdTime] :as result} (execute-trade trade)]
-      (println (java.time.Instant/ofEpochMilli createdTime) ": Strategy" (:name strategy) "executed trade" betId "on market" contractId "for" orderAmount outcome)
-      result))))
+  (try
+    (doall
+     (for [trade (->> strategy
+                      strategies/get-search-params
+                      search-markets
+                      (strategies/get-trades strategy))]
+       (try
+         (let [{:keys [betId contractId orderAmount outcome createdTime] :as result} (execute-trade trade)]
+           (println (time-str createdTime) "Strategy" (:name strategy) "executed trade" betId "on market" contractId "for" orderAmount outcome)
+           result)
+         (catch Exception e
+           (println (time-str) "Error executing trade for strategy" (:name strategy) ":" (.getMessage e))
+           nil))))
+    (catch Exception e
+      (println (time-str) "Error running strategy" (:name strategy) ":" (.getMessage e))
+      [])))
 
 ;; Main loop
 (defn trading-loop []
