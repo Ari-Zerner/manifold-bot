@@ -1,10 +1,7 @@
 (ns manifold-bot.api
   (:require [clj-http.client :as http]
             [cheshire.core :as json]
-            [clojure.edn :as edn]))
-
-;; Configuration
-(def config (edn/read-string (slurp "config.edn")))
+            [manifold-bot.config :as config]))
 
 (defn jsonify-body [opts]
   (if (map? (:body opts))
@@ -14,8 +11,8 @@
 
 ;; API interaction
 (defn request [endpoint method & [opts]]
-  (let [url (str (:api-base-url config) endpoint)
-        default-opts {:headers {"Authorization" (str "Key " (:api-key config))}
+  (let [url (str (config/api-base-url) endpoint)
+        default-opts {:headers {"Authorization" (str "Key " (config/api-key))}
                       :as :json
                       :coerce :always}
         response (http/request (merge default-opts

@@ -1,5 +1,6 @@
 (ns manifold-bot.core
   (:require [clojure.core.async :as async]
+            [manifold-bot.config :as config]
             [manifold-bot.api :as api]
             [manifold-bot.strategies :as strategies]))
 
@@ -45,7 +46,7 @@
   (async/go-loop []
     (doseq [strategy (strategies/get-strategies)]
       (run-strategy strategy))
-    (async/<! (async/timeout (* 1000 (:poll-interval-seconds api/config))))
+    (async/<! (async/timeout (* 1000 (config/poll-interval-seconds))))
     (recur)))
 
 ;; Entry point
