@@ -22,4 +22,21 @@
     (:body response)))
 
 ;; Load user info
-(def get-my-user-info (memoize (fn [] (request "/me" :get))))
+(defn get-my-user-info []
+  (request "/me" :get))
+
+(def my-user-id (:id (get-my-user-info)))
+
+(defn get-my-open-orders [market-id]
+  (request
+   "/bets" :get
+   {:query-params {:contractId market-id
+                   :userId my-user-id
+                   :kinds "open-limit"}}))
+
+(defn get-my-positions [market-id]
+  (->> (request
+        (str "/market/" market-id "/positions") :get
+        {:query-params {:userId my-user-id}})
+       (map :totalShares)
+       (apply merge-with +)))
