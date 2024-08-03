@@ -45,30 +45,28 @@
                         :filter "open"
                         :contractType "BINARY"})
   :get-trades (fn [config markets]
-                (let [user-id (:id (api/get-my-user-info))
-                      get-user-bets (fn [market-id]
-                                      (api/request
-                                       "/bets" :get
-                                       {:query-params {:contractId market-id
-                                                       :userId user-id}}))
-                      has-position-or-order? (fn [bets outcome]
-                                               (some #(= (:outcome %) outcome) bets))]
-                  (mapcat (fn [market]
-                            (let [user-bets (get-user-bets (:id market))]
-                              (remove nil?
-                                      [(when-not (has-position-or-order? user-bets "YES")
-                                         {:market-id (:id market)
-                                          :amount (:size config)
-                                          :outcome "YES"
-                                          :limit 0.47
-                                          :duration-seconds 86400})
-                                       (when-not (has-position-or-order? user-bets "NO")
-                                         {:market-id (:id market)
-                                          :amount (:size config)
-                                          :outcome "NO"
-                                          :limit 0.53
-                                          :duration-seconds 86400})])))
-                          markets))))
+                (mapcat (fn [{:keys [id]}]
+                          (let [positions (api/get-my-positions id)
+                                orders (api/get-my-open-orders id)
+                                should-bet? (fn [outcome]
+                                              (not (or
+                                                    ((keyword outcome) positions)
+                                                    (some #(= (:outcome %) outcome) orders))))
+                                duration-seconds (* 30 24 60 60)]
+                            (remove nil?
+                                    [(when (should-bet? "YES")
+                                       {:market-id id
+                                        :amount (:size config)
+                                        :outcome "YES"
+                                        :limit 0.47
+                                        :duration-seconds duration-seconds})
+                                     (when (should-bet? "NO")
+                                       {:market-id id
+                                        :amount (:size config)
+                                        :outcome "NO"
+                                        :limit 0.53
+                                        :duration-seconds duration-seconds})])))
+                        markets)))
 
 ;; Get all enabled strategies
 (defn get-strategies []
