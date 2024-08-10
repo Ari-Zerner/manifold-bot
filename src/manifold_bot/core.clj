@@ -78,7 +78,11 @@
    A core.async channel that runs the trading loop."
   []
   (async/go-loop []
-    (report "Balance:" (:balance (api/get-my-user-info)))
+    (try
+      (let [balance (:balance (api/get-my-user-info))]
+        (report "Balance:" balance))
+      (catch Exception e
+        (report "Error fetching balance:" (.getMessage e))))
     (dotimes [_ (config/polls-per-report)]
       (doseq [strategy (strategies/get-strategies)]
         (run-strategy strategy))
