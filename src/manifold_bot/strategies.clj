@@ -73,7 +73,7 @@
                                 orders (api/get-my-open-orders id)
                                 should-bet? (fn [outcome]
                                               (not (or
-                                                    ((keyword outcome) positions)
+                                                    (some-> ((keyword outcome) positions) pos?)
                                                     (some #(= (:outcome %) outcome) orders))))
                                 duration-seconds (* 30 24 60 60)]
                             (remove nil?
