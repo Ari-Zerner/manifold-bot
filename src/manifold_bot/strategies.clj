@@ -1,5 +1,6 @@
 (ns manifold-bot.strategies 
-  (:require [manifold-bot.api :as api]
+  (:require [clojure.string :as string]
+            [manifold-bot.api :as api]
             [manifold-bot.config :as config]))
 
 (def strategy-registry (atom {}))
@@ -10,7 +11,7 @@
    Parameters:
    - name: The name of the strategy.
    - description: A string describing the strategy.
-   - get-search-params: A function that returns market search parameters for the strategy.
+   - get-search-params: A function that returns market search parameters for the strategy, either as a single map or a list of maps.
    - get-trades: A function that generates trades based on market data.
    
    Returns:
@@ -25,7 +26,7 @@
                                 `(fn [markets#]
                                    (map #(assoc % :dry-run true)
                                         (~get-trades markets#))))}
-        sym (symbol (str (clojure.string/lower-case (str name)) "-strategy"))]
+        sym (symbol (str (string/lower-case (str name)) "-strategy"))]
     `(do
        (def ~sym ~strategy)
        (when ~enabled
@@ -39,9 +40,10 @@
    - strategy: A map containing strategy details.
    
    Returns:
-   A map of market search parameters for the strategy."
+   A list of maps of market search parameters for the strategy."
   [strategy]
-  ((:get-search-params strategy) (config/config-for-strategy (:name strategy))))
+  (let [params ((:get-search-params strategy) (config/config-for-strategy (:name strategy)))]
+    (if (seq? params) params [params])))
 
 (defn get-trades
   "Generates trades for a given strategy based on market data.
@@ -57,19 +59,21 @@
 
 (defstrategy Null
   :description "Do nothing"
-  :get-search-params {:limit 1}
+  :get-search-params (fn [config] [])
   :get-trades (fn [config markets] []))
 
-(defstrategy CoinFlip
-  :description "Market make in @Traveel's daily coinflip markets"
+(defstrategy FairlyRandom
+  :description "Market make in recurring markets resolved by FairlyRandom"
   :get-search-params (fn [config]
-                       {:term "Daily coinflip"
-                        :creatorId "gRmM27eQDEVTEjM1q6Yzc7abJT93" ; @Traveel
-                        :filter "open"
-                        :contractType "BINARY"})
+                       (for [market (:markets config)]
+                         {:term (:name market)
+                          :creatorId (:creatorId market)
+                          :filter "open"
+                          :contractType "BINARY"}))
   :get-trades (fn [config markets]
-                (mapcat (fn [{:keys [id]}]
-                          (let [positions (api/get-my-positions id)
+                (mapcat (fn [{:keys [id question creatorId] :as market}]
+                          (let [market-config (some #(when (and (string/includes? question (:name %)) (= (:creatorId %) creatorId)) %) (:markets config))
+                                positions (api/get-my-positions id)
                                 orders (api/get-my-open-orders id)
                                 should-bet? (fn [outcome]
                                               (not (or
@@ -81,13 +85,13 @@
                                        {:market-id id
                                         :amount (:size config)
                                         :outcome "YES"
-                                        :limit 0.47
+                                        :limit (:yes-limit market-config)
                                         :duration-seconds duration-seconds})
                                      (when (should-bet? "NO")
                                        {:market-id id
                                         :amount (:size config)
                                         :outcome "NO"
-                                        :limit 0.53
+                                        :limit (:no-limit market-config)
                                         :duration-seconds duration-seconds})])))
                         markets)))
 

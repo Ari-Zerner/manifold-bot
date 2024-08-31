@@ -56,8 +56,8 @@
   [strategy]
   (try
     (doall
-     (for [trade (->> strategy
-                      strategies/get-search-params
+     (for [search-params (strategies/get-search-params strategy)
+           trade (->> search-params
                       search-markets
                       (strategies/get-trades strategy))]
        (try
