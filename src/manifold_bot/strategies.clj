@@ -121,6 +121,9 @@
   :get-trades (fn [config markets]
                 (mapcat (fn [{:keys [id question creatorId] :as market}]
                           (let [market-config (some #(when (and (string/includes? question (:name %)) (= (:creatorId %) creatorId)) %) (:markets config))
+                                probability (:probability market-config)
+                                yes-price (- probability (:spread config))
+                                no-price (+ probability (:spread config))
                                 positions (api/get-my-positions id)
                                 orders (api/get-my-open-orders id)
                                 should-bet? (fn [outcome]
@@ -131,14 +134,14 @@
                             (remove nil?
                                     [(when (should-bet? "YES")
                                        {:market-id id
-                                        :amount (:size config)
+                                        :amount (kelly-bet-size yes-price probability)
                                         :outcome "YES"
-                                        :limit (:yes-limit market-config)
+                                        :limit yes-price
                                         :duration-seconds duration-seconds})
                                      (when (should-bet? "NO")
                                        {:market-id id
-                                        :amount (:size config)
+                                        :amount (kelly-bet-size (- 1 no-price) (- 1 probability))
                                         :outcome "NO"
-                                        :limit (:no-limit market-config)
+                                        :limit no-price
                                         :duration-seconds duration-seconds})])))
                         markets)))
