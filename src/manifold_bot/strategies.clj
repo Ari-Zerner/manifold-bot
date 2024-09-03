@@ -5,6 +5,8 @@
 
 (def strategy-registry (atom {}))
 
+; Public interface
+
 (defmacro defstrategy
   "Defines a new strategy and registers it if enabled.
    
@@ -57,6 +59,52 @@
   [strategy markets]
   ((:get-trades strategy) (config/config-for-strategy (:name strategy)) markets))
 
+(defn get-strategies
+  "Retrieves all enabled strategies from the strategy registry.
+   
+   Returns:
+   A list of all enabled strategy maps."
+  []
+  (vals @strategy-registry))
+
+; Strategies and helper functions
+
+(defn kelly-bet-fraction
+  "Calculates the Kelly criterion bet fraction.
+
+   Parameters:
+   - price: The current price (probability) of a share.
+   - true-value: The estimated true value (probability) of a share.
+   - market-deferral: (optional) A factor to reduce the bet size, where 0 means full Kelly,
+     and higher values reduce the bet size. Default is 0 (full Kelly).
+
+   Returns:
+   The recommended bet fraction."
+  [price true-value & [market-deferral]]
+  (try
+    (let [market-deferral (or market-deferral 0)
+          p (+ (* true-value (- 1 market-deferral)) (* price market-deferral)) ; probability of winning
+          b (/ (- 1 price) price)] ; odds received on the bet
+      (max 0 (- p (/ (- 1 p) b))))
+    (catch ArithmeticException _
+      0)))
+
+(defn kelly-bet-size
+  "Calculates the Kelly criterion bet size.
+
+   Parameters:
+   - price: The current price (probability) of a share.
+   - true-value: The estimated true value (probability) of a share.
+   - market-deferral: (optional) A factor to reduce the bet size, where 0 means full Kelly,
+     and higher values reduce the bet size. Default is 0 (full Kelly).
+
+   Returns:
+   The recommended bet size."
+  [price true-value & [market-deferral]]
+  (let [current-balance (:balance (api/get-my-user-info))
+        kelly-fraction (kelly-bet-fraction price true-value market-deferral)]
+    (* kelly-fraction current-balance)))
+
 (defstrategy Null
   :description "Do nothing"
   :get-search-params (fn [config] [])
@@ -94,11 +142,3 @@
                                         :limit (:no-limit market-config)
                                         :duration-seconds duration-seconds})])))
                         markets)))
-
-(defn get-strategies
-  "Retrieves all enabled strategies from the strategy registry.
-   
-   Returns:
-   A list of all enabled strategy maps."
-  []
-  (vals @strategy-registry))
