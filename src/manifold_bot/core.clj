@@ -79,8 +79,10 @@
   []
   (async/go-loop []
     (try
-      (let [balance (:balance (api/get-my-user-info))]
-        (report "Balance:" balance))
+      (let [user-info (api/get-my-user-info)
+            balance (:balance user-info)
+            net-worth (+ (:totalDeposits user-info) (get-in user-info [:profitCached :allTime]))]
+        (report "Balance:" balance "\tNet worth:" net-worth))
       (catch Exception e
         (report "Error fetching balance:" (.getMessage e))))
     (dotimes [_ (config/polls-per-report)]
