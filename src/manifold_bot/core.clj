@@ -20,7 +20,7 @@
   "Executes a trade based on the given trade parameters.
    
    Parameters:
-   - trade: A map containing trade details (market-id, amount, outcome, limit, duration-seconds, dry-run).
+   - trade: A map containing trade details (market-id, amount, outcome, limit, duration-seconds (optional), dry-run).
    
    Returns:
    The result of the trade execution."
@@ -30,7 +30,7 @@
                        :amount amount
                        :outcome outcome
                        :limitProb limit
-                       :expiresAt (-> duration-seconds (* 1000) (+ (System/currentTimeMillis)))
+                       :expiresAt (or (some-> duration-seconds (* 1000) (+ (System/currentTimeMillis))) (:closeTime (api/request (str "/market/" market-id) :get)))
                        :dryRun (or dry-run false)}}))
 
 ; TODO use an actual logging framework

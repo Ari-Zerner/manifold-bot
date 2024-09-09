@@ -129,19 +129,16 @@
                                 should-bet? (fn [outcome]
                                               (not (or
                                                     (some-> ((keyword outcome) positions) pos?)
-                                                    (some #(= (:outcome %) outcome) orders))))
-                                duration-seconds (* 30 24 60 60)]
+                                                    (some #(= (:outcome %) outcome) orders))))]
                             (remove nil?
                                     [(when (should-bet? "YES")
                                        {:market-id id
                                         :amount (kelly-bet-size yes-price probability)
                                         :outcome "YES"
-                                        :limit yes-price
-                                        :duration-seconds duration-seconds})
+                                        :limit yes-price})
                                      (when (should-bet? "NO")
                                        {:market-id id
                                         :amount (kelly-bet-size (- 1 no-price) (- 1 probability))
                                         :outcome "NO"
-                                        :limit no-price
-                                        :duration-seconds duration-seconds})])))
+                                        :limit no-price})])))
                         markets)))
