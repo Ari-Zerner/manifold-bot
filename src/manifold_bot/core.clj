@@ -84,7 +84,7 @@
       (let [user-info (api/get-my-user-info)
             balance (:balance user-info)
             net-worth (+ (:totalDeposits user-info) (get-in user-info [:profitCached :allTime]))]
-        (report "Balance:" balance "\tNet worth:" net-worth))
+        (report "Balance:" balance "\tNet worth:" net-worth)) ; TODO account for fees in net worth
       (catch Exception e
         (report "Error fetching balance:" (.getMessage e))))
     (dotimes [_ (config/polls-per-report)]
