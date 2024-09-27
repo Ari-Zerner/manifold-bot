@@ -8,7 +8,8 @@
                  [org.clojure/core.async "1.3.618"]
                  [clj-http "3.12.3"]
                  [cheshire "5.10.1"]
-                 [org.clojure/tools.logging "1.1.0"]]
+                 [org.clojure/tools.logging "1.1.0"]
+                 [ch.qos.logback/logback-classic "1.2.3"]]
 
   :source-paths ["src"]
 
@@ -22,4 +23,3 @@
   :aot [manifold-bot.core]
 
   :target-path "target/%s")
-

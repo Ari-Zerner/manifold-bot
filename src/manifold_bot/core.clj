@@ -2,7 +2,8 @@
   (:require [clojure.core.async :as async]
             [manifold-bot.config :as config]
             [manifold-bot.api :as api]
-            [manifold-bot.strategies :as strategies]))
+            [manifold-bot.strategies :as strategies]
+            [clojure.tools.logging :as log]))
 
 (defn search-markets
   "Searches for markets based on the given query parameters.
@@ -33,18 +34,6 @@
                        :expiresAt (or (some-> duration-seconds (* 1000) (+ (System/currentTimeMillis))) (:closeTime (api/request (str "/market/" market-id) :get)))
                        :dryRun (or dry-run false)}}))
 
-; TODO use an actual logging framework
-(defn report
-  "Logs a message with a timestamp.
-   
-   Parameters:
-   - args: Arguments to be logged, as with println."
-  [& args]
-  (let [time (.format 
-               (java.time.format.DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss ")
-               (java.time.LocalDateTime/now))]
-    (apply println time args)))
-
 (defn run-strategy
   "Runs a given strategy by searching for markets and executing trades.
    
@@ -64,13 +53,13 @@
          (let [{:keys [betId contractId orderAmount outcome fills probBefore probAfter] :as result} (execute-trade trade)
                effect (if fills (->> fills (map :shares) (reduce +) #(str "(" % " filled )"))
                           (str "(" probBefore "% -> " probAfter "%)" ))]
-           (report "Strategy" (:name strategy) "executed trade" betId "on market" contractId "for" orderAmount outcome effect)
+           (log/info "Strategy" (:name strategy) "executed trade" betId "on market" contractId "for" orderAmount outcome effect)
            result)
          (catch Exception e
-           (report "Error executing trade for strategy" (:name strategy) ":" (.getMessage e))
+           (log/error "Error executing trade for strategy" (:name strategy) ":" (.getMessage e))
            nil))))
     (catch Exception e
-      (report "Error running strategy" (:name strategy) ":" (.getMessage e))
+      (log/error "Error running strategy" (:name strategy) ":" (.getMessage e))
       [])))
 
 (defn trading-loop
@@ -84,9 +73,9 @@
       (let [user-info (api/get-my-user-info)
             balance (:balance user-info)
             net-worth (+ (:totalDeposits user-info) (get-in user-info [:profitCached :allTime]))]
-        (report "Balance:" balance "\tNet worth:" net-worth)) ; TODO account for fees in net worth
+        (log/info "Balance:" balance "\tNet worth:" net-worth)) ; TODO account for fees in net worth
       (catch Exception e
-        (report "Error fetching balance:" (.getMessage e))))
+        (log/error "Error fetching balance:" (.getMessage e))))
     (dotimes [_ (config/polls-per-report)]
       (doseq [strategy (strategies/get-strategies)]
         (run-strategy strategy))
@@ -97,7 +86,7 @@
   "Entry point for the trading bot.
    Starts the trading loop and keeps the program running."
   [& args]
-  (report "Enabled strategies:" (clojure.string/join ", " (map :name (strategies/get-strategies))))
+  (log/info "Enabled strategies:" (clojure.string/join ", " (map :name (strategies/get-strategies))))
   (trading-loop)
-  (report "Bot is running. Press Ctrl+C to stop.")
+  (log/info "Bot is running. Press Ctrl+C to stop.")
   (async/<!! (async/chan))) ; Block indefinitely
