@@ -16,3 +16,10 @@ config.edn
 .clj-kondo
 .lsp
 logs/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!terraform.tfvars
