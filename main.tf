@@ -38,6 +38,9 @@ resource "google_compute_instance" "manifold_bot_instance" {
     curl https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein
     chmod a+x /usr/local/bin/lein
 
+    # Install my dotfiles for when I SSH in
+    eval "$(curl https://raw.githubusercontent.com/Ari-Zerner/.dotfiles/master/init)"
+
     git clone https://github.com/ari-zerner/manifold-bot.git
     cd manifold-bot
     gsutil cp gs://manifold-bot-config/config.edn .
