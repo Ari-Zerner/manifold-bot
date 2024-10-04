@@ -76,10 +76,13 @@
         (log/info "Balance:" balance "\tNet worth:" net-worth)) ; TODO account for fees in net worth
       (catch Exception e
         (log/error "Error fetching balance:" (.getMessage e))))
-    (dotimes [_ (config/polls-per-report)]
-      (doseq [strategy (strategies/get-strategies)]
-        (run-strategy strategy))
-      (async/<! (async/timeout (* 1000 (config/poll-interval-seconds)))))
+    (try
+      (dotimes [_ (config/polls-per-report)]
+        (doseq [strategy (strategies/get-strategies)]
+          (run-strategy strategy))
+        (async/<! (async/timeout (* 1000 (config/poll-interval-seconds)))))
+      (catch Exception e
+        (log/error "Error in trading loop:" (.getMessage e))))
     (recur)))
 
 (defn -main
