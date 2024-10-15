@@ -51,8 +51,9 @@
                       (strategies/get-trades strategy))]
        (try
          (let [{:keys [betId contractId orderAmount outcome fills probBefore probAfter] :as result} (execute-trade trade)
-               effect (if fills (->> fills (map :shares) (reduce +) #(str "(" % " filled )"))
-                          (str "(" probBefore "% -> " probAfter "%)" ))]
+               effect (if fills
+                        (str "(" (->> fills (map :shares) (reduce +)) " filled)")
+                        (str "(" probBefore "% -> " probAfter "%)"))]
            (log/info "Strategy" (:name strategy) "executed trade" betId "on market" contractId "for" orderAmount outcome effect)
            result)
          (catch Exception e
