@@ -64,33 +64,26 @@
       [])))
 
 (defn trading-loop
-  "Starts the main trading loop, which runs strategies at regular intervals.
-   
-   Returns:
-   A core.async channel that runs the trading loop."
+  "Starts the main trading loop, which runs strategies at regular intervals."
   []
-  (async/go-loop []
+  (log/info "Starting trading loop...")
+  (log/info "Enabled strategies:" (clojure.string/join ", " (map :name (strategies/get-strategies))))
+  (while true
     (try
       (let [user-info (api/get-my-user-info)
             balance (:balance user-info)
             net-worth (+ (:totalDeposits user-info) (get-in user-info [:profitCached :allTime]))]
         (log/info "Balance:" balance "\tNet worth:" net-worth)) ; TODO account for fees in net worth
-      (catch Exception e
-        (log/error "Error fetching balance:" (.getMessage e))))
-    (try
       (dotimes [_ (config/polls-per-report)]
         (doseq [strategy (strategies/get-strategies)]
-          (run-strategy strategy))
-        (async/<! (async/timeout (* 1000 (config/poll-interval-seconds)))))
+          (run-strategy strategy)))
       (catch Exception e
-        (log/error "Error in trading loop:" (.getMessage e))))
-    (recur)))
+        (log/error "Error in trading loop:" (.getMessage e)))
+      (finally
+        (Thread/sleep (* 1000 (config/poll-interval-seconds)))))))
 
 (defn -main
   "Entry point for the trading bot.
    Starts the trading loop and keeps the program running."
   [& args]
-  (log/info "Enabled strategies:" (clojure.string/join ", " (map :name (strategies/get-strategies))))
-  (trading-loop)
-  (log/info "Bot is running. Press Ctrl+C to stop.")
-  (async/<!! (async/chan))) ; Block indefinitely
+  (trading-loop))
